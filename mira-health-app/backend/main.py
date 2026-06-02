@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+from pydantic import BaseModel
 
 import models
 import schemas
@@ -16,7 +17,7 @@ app = FastAPI(title="MIRA Health Prediction API")
 # ─── CREATE ───────────────────────────────────────────────
 @app.post("/patients", response_model=schemas.PatientResponse)
 def create_patient(patient: schemas.PatientCreate, db: Session = Depends(get_db)):
-    
+
     # Check if email already exists
     existing = db.query(models.Patient).filter(models.Patient.email == patient.email).first()
     if existing:
@@ -62,32 +63,48 @@ def get_all_patients(db: Session = Depends(get_db)):
 
 # ─── READ ONE ─────────────────────────────────────────────
 @app.get("/patients/{patient_id}", response_model=schemas.PatientResponse)
-def get_patient(patient_id: int, db: Session = Depends(get_db)):
+def get_patient(patient_id: str, db: Session = Depends(get_db)):
     patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
     return patient
 
 
-# ─── UPDATE ───────────────────────────────────────────────
+# ─── UPDATE — AI regenerate hogi updated values se ────────
 @app.put("/patients/{patient_id}", response_model=schemas.PatientResponse)
-def update_patient(patient_id: int, updates: schemas.PatientUpdate, db: Session = Depends(get_db)):
+def update_patient(patient_id: str, updates: schemas.PatientUpdate, db: Session = Depends(get_db)):
     patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
 
-    # Only update fields that were actually sent
+    # Pehle saari fields update karo
     for field, value in updates.model_dump(exclude_unset=True).items():
         setattr(patient, field, value)
 
     db.commit()
     db.refresh(patient)
+
+    # Ab updated values se AI dobara call karo
+    try:
+        remarks = ai_service.predict_health(
+            full_name   = patient.full_name,
+            dob         = str(patient.dob),
+            glucose     = patient.glucose,
+            haemoglobin = patient.haemoglobin,
+            cholesterol = patient.cholesterol,
+        )
+        patient.remarks = remarks
+        db.commit()
+        db.refresh(patient)
+    except Exception as e:
+        pass
+
     return patient
 
 
-# ─── DELETE ───────────────────────────────────────────────
+# ─── DELETE SINGLE ────────────────────────────────────────
 @app.delete("/patients/{patient_id}")
-def delete_patient(patient_id: int, db: Session = Depends(get_db)):
+def delete_patient(patient_id: str, db: Session = Depends(get_db)):
     patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
@@ -95,3 +112,19 @@ def delete_patient(patient_id: int, db: Session = Depends(get_db)):
     db.delete(patient)
     db.commit()
     return {"message": f"Patient {patient_id} deleted successfully"}
+
+
+# ─── DELETE BULK — Gmail style ────────────────────────────
+class BulkDeleteRequest(BaseModel):
+    ids: List[str]
+
+@app.delete("/patients")
+def bulk_delete_patients(request: BulkDeleteRequest, db: Session = Depends(get_db)):
+    deleted = 0
+    for patient_id in request.ids:
+        patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
+        if patient:
+            db.delete(patient)
+            deleted += 1
+    db.commit()
+    return {"message": f"{deleted} patient(s) deleted successfully"}

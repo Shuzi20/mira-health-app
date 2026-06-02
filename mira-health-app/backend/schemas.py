@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, field_validator
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 
 class PatientCreate(BaseModel):
@@ -31,14 +31,15 @@ class PatientUpdate(BaseModel):
     cholesterol : Optional[float] = None
 
 class PatientResponse(BaseModel):
-    id          : str        # UUID string
+    id          : str
     full_name   : str
     dob         : date
     email       : str
     glucose     : float
     haemoglobin : float
     cholesterol : float
-    remarks     : Optional[str] = None
+    remarks     : Optional[str]      = None
+    created_at  : Optional[datetime] = None  # yeh add kiya
 
     class Config:
         from_attributes = True
