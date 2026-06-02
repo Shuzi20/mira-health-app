@@ -1,0 +1,30 @@
+# API keys and secrets — MOST IMPORTANT
+.env
+
+# Python cache files — automatically generated, no need to push
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment — har machine par alag hoti hai
+venv/
+env/
+.venv/
+
+# Database file — local data hai, production mein alag hoga
+*.db
+*.sqlite
+*.sqlite3
+
+# VS Code settings — personal editor settings
+.vscode/
+
+# Windows system files — automatically banta hai Windows mein
+Thumbs.db
+desktop.ini
+
+# Streamlit cache
+.streamlit/
+
+# Pytest cache
+.pytest_cache/
