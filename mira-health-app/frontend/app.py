@@ -98,52 +98,143 @@ if menu == "View Patients":
     else:
         st.info("No patients found.")
 
+
 # ─── ADD PATIENT ──────────────────────────────────────────
 elif menu == "Add Patient":
     st.subheader("Add New Patient")
 
-    # Fix 4 — form clear hoga submit ke baad using session state
-    if "form_submitted" not in st.session_state:
-        st.session_state.form_submitted = False
+    # Session state initialize
+    if "form_data" not in st.session_state:
+        st.session_state.form_data = {
+            "full_name": "",
+            "dob": date.today(),
+            "email": "",
+            "glucose": 0.0,
+            "haemoglobin": 0.0,
+            "cholesterol": 0.0,
+        }
 
-    if st.session_state.form_submitted:
-        st.session_state.form_submitted = False
+    if "last_prediction" not in st.session_state:
+        st.session_state.last_prediction = None
+        
+    if "form_reset_counter" not in st.session_state:
+        st.session_state.form_reset_counter = 0
+
+    # Function to clear form
+    def clear_form():
+        st.session_state.form_data = {
+            "full_name": "",
+            "dob": date.today(),
+            "email": "",
+            "glucose": 0.0,
+            "haemoglobin": 0.0,
+            "cholesterol": 0.0,
+        }
+        st.session_state.last_prediction = None
+        st.session_state.form_reset_counter += 1
         st.rerun()
 
-    with st.form(key="add_patient_form", clear_on_submit=True):
-        full_name   = st.text_input("Full Name")
-        dob         = st.date_input("Date of Birth", min_value=date(1900, 1, 1), max_value=date.today())
-        email       = st.text_input("Email Address")
-        glucose     = st.number_input("Glucose (mg/dL)",     min_value=0.0, step=0.1)
-        haemoglobin = st.number_input("Haemoglobin (g/dL)",  min_value=0.0, step=0.1)
-        cholesterol = st.number_input("Cholesterol (mg/dL)", min_value=0.0, step=0.1)
+    # Form inputs — vertical stack
+    st.session_state.form_data["full_name"] = st.text_input(
+        "Full Name",
+        value=st.session_state.form_data["full_name"],
+        key=f"full_name_{st.session_state.form_reset_counter}"
+    )
 
-        submitted = st.form_submit_button("💾 Save Patient & Get AI Prediction")
+    st.session_state.form_data["dob"] = st.date_input(
+        "Date of Birth",
+        value=st.session_state.form_data["dob"],
+        min_value=date(1900, 1, 1),
+        max_value=date.today(),
+        key=f"dob_{st.session_state.form_reset_counter}"
+    )
 
-    if submitted:
-        if not full_name or not email:
-            st.warning("Please fill in all fields.")
-        else:
-            payload = {
-                "full_name"   : full_name,
-                "dob"         : str(dob),
-                "email"       : email,
-                "glucose"     : glucose,
-                "haemoglobin" : haemoglobin,
-                "cholesterol" : cholesterol,
-            }
-            with st.spinner("Saving patient and generating AI prediction..."):
-                res = requests.post(f"{API}/patients", json=payload)
+    st.session_state.form_data["email"] = st.text_input(
+        "Email Address",
+        value=st.session_state.form_data["email"],
+        key=f"email_{st.session_state.form_reset_counter}"
+    )
 
-            if res.status_code == 200:
-                data = res.json()
-                st.success("✅ Patient saved successfully!")
-                st.info(f"🤖 AI Prediction: {data['remarks']}")
-                st.session_state.form_submitted = True
+    # Blood values — ek ke neeche ek (vertical)
+    st.session_state.form_data["glucose"] = st.number_input(
+        "Glucose (mg/dL)",
+        value=st.session_state.form_data["glucose"],
+        min_value=0.0,
+        step=0.1,
+        key=f"glucose_{st.session_state.form_reset_counter}"
+    )
+
+    st.session_state.form_data["haemoglobin"] = st.number_input(
+        "Haemoglobin (g/dL)",
+        value=st.session_state.form_data["haemoglobin"],
+        min_value=0.0,
+        step=0.1,
+        key=f"haemoglobin_{st.session_state.form_reset_counter}"
+    )
+
+    st.session_state.form_data["cholesterol"] = st.number_input(
+        "Cholesterol (mg/dL)",
+        value=st.session_state.form_data["cholesterol"],
+        min_value=0.0,
+        step=0.1,
+        key=f"cholesterol_{st.session_state.form_reset_counter}"
+    )
+
+    # Buttons — Save aur Clear side by side
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("💾 Save Patient & Get AI Prediction", key="save_btn", use_container_width=True):
+            full_name = st.session_state.form_data["full_name"]
+            email = st.session_state.form_data["email"]
+
+            if not full_name or not email:
+                st.warning("Please fill in all fields.")
             else:
-                st.error(f"Error: {res.json()['detail']}")
+                payload = {
+                    "full_name": full_name,
+                    "dob": str(st.session_state.form_data["dob"]),
+                    "email": email,
+                    "glucose": st.session_state.form_data["glucose"],
+                    "haemoglobin": st.session_state.form_data["haemoglobin"],
+                    "cholesterol": st.session_state.form_data["cholesterol"],
+                }
 
+                with st.spinner("Saving patient and generating AI prediction..."):
+                    res = requests.post(f"{API}/patients", json=payload)
 
+                if res.status_code == 200:
+                    data = res.json()
+                    st.session_state.last_prediction = data['remarks']
+                    st.success("✅ Patient saved successfully!")
+                    st.info(f"🤖 AI Prediction: {data['remarks']}")
+                    
+                    import time
+                    time.sleep(2)
+                    
+                    st.session_state.form_data = {
+                        "full_name": "",
+                        "dob": date.today(),
+                        "email": "",
+                        "glucose": 0.0,
+                        "haemoglobin": 0.0,
+                        "cholesterol": 0.0,
+                    }
+                    st.session_state.form_reset_counter += 1
+                    st.rerun()
+                else:
+                    error_msg = res.json().get('detail', 'Unknown error')
+                    st.error(f"❌ Error: {error_msg}")
+
+    with col2:
+        st.button("🗑️ Clear Form", key="clear_btn", use_container_width=True, on_click=clear_form)
+
+    # Last prediction
+    if st.session_state.last_prediction:
+        st.divider()
+        st.info(f"🤖 Last AI Prediction: {st.session_state.last_prediction}")
+
+        
 # ─── UPDATE PATIENT ───────────────────────────────────────
 elif menu == "Update Patient":
     st.subheader("Update Patient Record")
