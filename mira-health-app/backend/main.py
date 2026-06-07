@@ -84,7 +84,7 @@ def update_patient(patient_id: str, updates: schemas.PatientUpdate, db: Session 
     db.commit()
     db.refresh(patient)
 
-    # Ab updated values se AI dobara call karo
+    # Ab updated values se AI dobara call karega
     try:
         remarks = ai_service.predict_health(
             full_name   = patient.full_name,
@@ -114,7 +114,7 @@ def delete_patient(patient_id: str, db: Session = Depends(get_db)):
     return {"message": f"Patient {patient_id} deleted successfully"}
 
 
-# ─── DELETE BULK — Gmail style ────────────────────────────
+# ─── DELETE BULK ────────────────────────────
 class BulkDeleteRequest(BaseModel):
     ids: List[str]
 
